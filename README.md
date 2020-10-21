@@ -12,6 +12,8 @@ The examples will regard mainly **secure** communications between devices.
 + Public key exchange + encrypted msg exchange
 
 
+All the example are developed and tested on [FIT IOT-LAB](https://www.iot-lab.info/testbed/dashboard).
+Their hosts works on the version 2019.01 of RIOT-OS (_git clone 2019.01-branch https://github.com/RIOT-OS/RIOT.git_), and on this verion of the [GNU Arm Embedded Toolchain](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads/7-2018-q2-update).
 
 Obviously, I am working to provide more and more examples ;)
 
