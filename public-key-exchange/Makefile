@@ -45,6 +45,9 @@ USEMODULE += shell_commands
 USEMODULE += ps
 
 # micro ecc support
+USEPKG += micro-ecc
+
+# aes support
 USEPKG += tinycrypt
 
 CFLAGS += -DGNRC_PKTBUF_SIZE=512 -DGNRC_NETIF_IPV6_ADDRS_NUMOF=2 \
