@@ -7,7 +7,6 @@
  */
 
 /**
- * @ingroup     examples
  * @{
  *
  * @file
@@ -20,8 +19,6 @@
  * @modified-by Stefano Milani <stefano.milani96@gmail.com>
  *
  */
-
-#include <stdio.h>
 
 // Useful to UDP server and send msg
 #include "msg.h"
@@ -42,8 +39,8 @@ static msg_t main_msg_queue[MAIN_MSG_QUEUE_SIZE];
 
 // Add custon shell command
 static const shell_command_t commands[] = {
-    { "start_exchange", "Start public key exchange with given IP address", start_exchange },
-    { "send_encrypted", "Send encrypted message to specified IP address", send_encrypted  },
+    { "start-exchange", "Start public key exchange with given IP address", start_exchange },
+    { "send-encrypted", "Send encrypted message to specified IP address", send_encrypted  },
     { NULL, NULL, NULL}
 }; 
 
