@@ -30,7 +30,6 @@ USEMODULE += posix_time
 USEMODULE += gnrc_rpl
 USEMODULE += auto_init_gnrc_rpl
 
-
 # Specify the minimum networking modules for IPv6
 USEMODULE += gnrc_ipv6
 # Additional networking modules that can be dropped if not needed
@@ -44,8 +43,11 @@ USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
 
+# AES module
+USEMODULE += crypto
+USEMODULE += cipher_modes
 # micro ecc support
-USEPKG += tinycrypt
+USEPKG += micro-ecc
 
 CFLAGS += -DGNRC_PKTBUF_SIZE=512 -DGNRC_NETIF_IPV6_ADDRS_NUMOF=2 \
           -DGNRC_NETIF_IPV6_GROUPS_NUMOF=2 -DGNRC_IPV6_NIB_NUMOF=1 \

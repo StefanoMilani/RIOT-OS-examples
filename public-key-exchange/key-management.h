@@ -1,6 +1,7 @@
 /**
- * @file        utils.h
- * @brief       Contains declaration of useful structs and functions
+ * @file        key-management.h
+ * @brief       Contains declaration of structs and functions
+ * 				to manage keys
  *
  * @author      Stefano Milani <stefano.milani96@gmail.com>
  *
@@ -9,12 +10,9 @@
 #define UTILS_H
 
 #include <stdio.h>
-// include random library
+
+#include "uECC.h"
 #include "random.h"
-// include xtimer library
-#include "xtimer.h"
-// micro-ecc library
-#include "tinycrypt/ecc_dh.h"
 
 // Struct for curve 
 typedef struct uECC_Curve_t* ECC_Curve;
@@ -41,6 +39,6 @@ void print_key(uint8_t* key, size_t size);
 void generate_private_key(uint8_t *key, size_t size);
 
 // Generate private, public and compressed keys
-void generate_keys(Key *key, const struct uECC_Curve_t *curve);
+int generate_keys(Key *key, const struct uECC_Curve_t *curve);
 
 #endif // UTILS_H

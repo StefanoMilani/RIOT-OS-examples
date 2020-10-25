@@ -10,6 +10,8 @@ After the completion of the exchange the two devices can send each other encrypt
 
 The code has been tested on [IoT-LAB](https://www.iot-lab.info) using the [m3 board](https://www.iot-lab.info/hardware/m3/).
 
+> **_NOTE:_** To ensure the correct execution of the code you need to uncomment **line 37** (`#define CRYPTO_AES`)of the file *{RIOT_BASE_DIR}/sys/include/crypto/ciphers.h* in your RIOT directory. This ensure that the CRYPTO\_AES module is correctly loaded in your build.
+
 ## Point to point communication
 The devices, by default, use a p2p communication to exchange the packets.
 
@@ -23,7 +25,7 @@ In this case, you need to start an experiment with three m3 boards. We use one b
 So we need to find the interface number on each board, using the `ifconfig` command.
 
 
-Assuming we found _interface 6_, we start on all the boards the rpl protocol: `rpl init 6`.
+Assuming we found *interface 6*, we start on all the boards the rpl protocol: `rpl init 6`.
 
 Then, we need to configure a global ip address in the root of the DAG, and then we can start a RPL DODAG:
 
