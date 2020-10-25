@@ -46,12 +46,16 @@
 #include "thread.h"
 #include "key-management.h"
 #include "crypto/aes.h"
+#include "crypto/modes/cbc.h"
 
 #include "udp.h"
 
 // Server utils define
 #define SERVER_MSG_QUEUE_SIZE   8
 #define SERVER_BUFFER_SIZE      128
+
+//
+#define IV_SIZE					16
 
 // Message utils define 
 #define MSG_TYPE_SIZE   		1
@@ -75,9 +79,9 @@ Device* dev=NULL;
 
 // Function declarations
 int udp_send(char *addr_str, char *port_str, char *data, size_t data_len, unsigned int num, unsigned int delay);
-int handle_message(char* src_addr, int msg_size);
+int handle_message(char* src_addr, int data_count);
 int manage_key_request(char* src_addr);
-int decrypt_received_message(char* src_addr, int msg_size);
+int decrypt_received_message(char* src_addr, int data_count);
 int store_dev_info(char* addr, uint8_t* compr);
 void *_server_thread(void *args);
 int send_ack(char* src_addr);
@@ -120,7 +124,7 @@ int udp_send(char *addr_str, char *port_str, char *data, size_t data_len,  unsig
 }
 
 // Handle received message
-int handle_message(char* src_addr, int msg_size) {
+int handle_message(char* src_addr, int data_count) {
     uint8_t msg_type;
     // Get message type from message (First char)
     memcpy(&msg_type, server_buffer, MSG_TYPE_SIZE);
@@ -146,7 +150,7 @@ int handle_message(char* src_addr, int msg_size) {
             break;
         case MSG:
 			// Ecrypted message received
-			if(decrypt_received_message(src_addr, msg_size) == -1) {
+			if(decrypt_received_message(src_addr, data_count) == -1) {
 				perror("Failed to  received message");
 				return -1;
 			}
@@ -221,25 +225,53 @@ int send_ack(char* src_addr) {
 }
 
 // Encrypted message received
-int decrypt_received_message(char* src_addr, int msg_size) {
-    printf("\n-Decrypting message! Size: %d\n", msg_size);
+int decrypt_received_message(char* src_addr, int data_count) {
+    printf("\n-Decrypting message! Data size: %d\n", data_count);
     // Initializing aes struct
     cipher_t aes_context;
-    // Initialize AES context 
+    int ret;
+	// Initialize AES context 
     if(cipher_init(&aes_context, CIPHER_AES_128, (const uint8_t*)dev->secret, AES_KEY_SIZE) != CIPHER_INIT_SUCCESS ) {
 		perror("Failed to initialize aes context");
 		return -1;
 	}
-    // Decrypt 
-    uint8_t msg[AES_BLOCK_SIZE];
-	memset(&msg, 0x00, AES_BLOCK_SIZE);
-	if(cipher_decrypt(	(const cipher_t*) &aes_context, 
- 			   			(const uint8_t*) server_buffer+MSG_TYPE_SIZE, msg)	< 0 ) {
-		perror("Failed to decrypt message");
+    
+	// Retrieve IV
+	uint8_t initialization_vector[IV_SIZE];
+	memcpy(initialization_vector, server_buffer + MSG_TYPE_SIZE, IV_SIZE);
+
+	// Decrypt content
+	size_t plaintext_len = data_count - MSG_TYPE_SIZE - IV_SIZE;
+	uint8_t plaintext[plaintext_len];
+	uint8_t ciphertext[plaintext_len];
+	memset(plaintext, 0x00, plaintext_len);
+	memcpy(ciphertext, server_buffer + MSG_TYPE_SIZE + IV_SIZE, plaintext_len);
+
+	ret = cipher_decrypt_cbc(	&aes_context, initialization_vector, 
+  		  						(const uint8_t*) ciphertext, plaintext_len, plaintext);
+	if(ret < 0) {
+		perror("Failed to decrypt data");
 		return -1;
 	}
-    printf("Message received: \"%s\"\tfrom: %s\n", msg, src_addr);
 	
+	// Get actual message size
+	uint8_t msg_len_b = plaintext[0];
+	// memcpy(&msg_len_b, plaintext, 0);
+	size_t msg_len = (size_t) msg_len_b;
+ 	printf("MSG_LEN: %d\t, 0x%x\n", msg_len, msg_len_b); 
+	// Get message (plus one to add NULL terminator)
+	char msg[msg_len+1];
+	memcpy(msg, plaintext + 1, msg_len);
+	/* 
+ 	 * 	Add NULL terminator for testing purpose
+ 	 *	
+ 	 */
+	msg[msg_len] = 0x00;
+
+	printf("Message received: \"%s\" of %d bytes\tfrom: %s\n", msg, msg_len , src_addr);
+
+	memset(server_buffer, 0x00, SERVER_BUFFER_SIZE);
+
 	return 0;
 }
 
@@ -314,7 +346,6 @@ int send_encrypted(int argc, char **argv){
     cipher_t aes_context;
 
     // Initialize context
-
     int ret = cipher_init(&aes_context, CIPHER_AES_128,  (const uint8_t*) dev->secret, AES_KEY_SIZE);
 	if(ret != CIPHER_INIT_SUCCESS) {
 		printf("ERROR: %d\n", ret);
@@ -322,15 +353,48 @@ int send_encrypted(int argc, char **argv){
 		return -1;
 	}
 
-    // Encrypt message, argv[2] contains the message to be encrypted
-    memset(server_buffer, 0x00, SERVER_BUFFER_SIZE);
-    cipher_encrypt((const cipher_t*)&aes_context, (const uint8_t *) argv[2], (uint8_t*) server_buffer+MSG_TYPE_SIZE);
+    // Clean up server buffer
+	memset(server_buffer, 0x00, SERVER_BUFFER_SIZE);
 
-    // Forge server buffer
+    // Set message type in server buffer
 	memset(server_buffer, MSG, MSG_TYPE_SIZE);
+	
+	// Get new IV and populate server buffer
+	uint8_t initialization_vector[IV_SIZE];
+	random_bytes(initialization_vector, IV_SIZE);
+	memcpy(server_buffer + MSG_TYPE_SIZE, initialization_vector, IV_SIZE);
+
+	// Get message length
+	size_t msg_len = strlen(argv[2]);
+	printf("MSG_LEN: %d\t, 0x%x\n", msg_len, (uint8_t) msg_len);
+	// Initialize and populate plaintext
+	size_t plaintext_len = (msg_len + 1) + (AES_BLOCK_SIZE - ((msg_len +1)  % AES_BLOCK_SIZE));
+	if( plaintext_len > SERVER_BUFFER_SIZE - MSG_TYPE_SIZE - IV_SIZE) {
+		perror("Message to long");
+		return -1;
+	}
+	uint8_t plaintext[plaintext_len];
+	memset(plaintext, 0x00, plaintext_len);
+	memset(plaintext, (uint8_t) msg_len, 1);
+	memcpy(plaintext + 1, argv[2], msg_len);
+
+
+    // Encrypt len+message and put it in server buffer
+    uint8_t ciphertext[plaintext_len];
+	memset(ciphertext, 0x00, plaintext_len);
+    ret = cipher_encrypt_cbc(	&aes_context, initialization_vector,
+								(const uint8_t*) plaintext, plaintext_len, ciphertext);
+	if(ret < 0) {
+		perror("Failed to encrypt data");
+		return -1;
+	}
+    // cipher_encrypt((const cipher_t*)&aes_context, (const uint8_t *) argv[2], (uint8_t*) server_buffer+MSG_TYPE_SIZE);
+	memcpy(server_buffer + MSG_TYPE_SIZE + IV_SIZE, ciphertext, plaintext_len);
     
     // Send encrypted message
-    udp_send(argv[1], DEFAULT_PORT, server_buffer, AES_BLOCK_SIZE + MSG_TYPE_SIZE, DEFAULT_NUM, DEFAULT_DELAY);
+    udp_send(argv[1], DEFAULT_PORT, server_buffer, MSG_TYPE_SIZE + IV_SIZE + plaintext_len, DEFAULT_NUM, DEFAULT_DELAY);
+
+	memset(server_buffer, 0x00, SERVER_BUFFER_SIZE);
 
     return 0;
 }

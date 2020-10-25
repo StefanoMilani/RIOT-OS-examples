@@ -45,6 +45,7 @@ USEMODULE += ps
 
 # AES module
 USEMODULE += crypto
+USEMODULE += cipher_modes
 # micro ecc support
 USEPKG += micro-ecc
 

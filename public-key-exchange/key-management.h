@@ -10,10 +10,9 @@
 #define UTILS_H
 
 #include <stdio.h>
-// include xtimer library
-#include "xtimer.h"
-// micro-ecc library
+
 #include "uECC.h"
+#include "random.h"
 
 // Struct for curve 
 typedef struct uECC_Curve_t* ECC_Curve;

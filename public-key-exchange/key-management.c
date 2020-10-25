@@ -6,8 +6,6 @@
  *
  */
 
-#include "random.h"
-
 #include "key-management.h"
 
 // Print key
