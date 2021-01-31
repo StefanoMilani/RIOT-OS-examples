@@ -1,25 +1,17 @@
 /**
- * @file        key-management.c
+ * @file        ECC-key-utils.c
  * @brief       Contains implementations of key management functions
  *
  * @author      Stefano Milani <stefano.milani96@gmail.com>
  *
  */
 
+#include <stdio.h>
+
 #include "uECC.h"
 #include "random.h"
 
-#include "key-management.h"
-
-void print_key(uint8_t* key, size_t size);
-void generate_private_key(uint8_t *key, size_t size);
-int generate_keys(Key *key, const struct uECC_Curve_t *curve);
-
-// Global variables
-Key device_keys;
-Key server_keys
-uint8_t server_compressed[33];
-const struct uECC_Curve_t *curve = uECC_secpr256r1();
+#include "ECC-key-utils.h"
 
 // Struct for storing key pair
 struct key_t {
@@ -29,8 +21,20 @@ struct key_t {
 };
 typedef struct key_t Key;
 
-int generate_fake_server_key() {
-	generate_keys(&server_keys, curve);
+void print_key(uint8_t* key, size_t size);
+void generate_private_key(uint8_t *key, size_t size);
+int generate_keys(Key *key, const struct uECC_Curve_t *curve);
+
+// Global variables
+Key device_keys;
+Key server_keys;
+uint8_t server_compressed[33];
+const struct uECC_Curve_t *curve;
+
+
+int generate_fake_server_keys(void) {
+	curve = uECC_secp256r1();
+	return generate_keys(&server_keys, curve);
 }
 
 /*
@@ -39,18 +43,18 @@ int generate_fake_server_key() {
 
 // Compute priv/pub key pair annd compress pub key
 int compute_keys(int argc, char* argv[]) {
-	generate_keys(&device_key, curve);
+	argv++;
+	argc++;	
+	return generate_keys(&device_keys, curve);
 }
 
 // Uncompress key and compute secret
 int compute_secret(int argc, char* argv[]) {
-	
+	argv++;
+	argc++;	
 	// Decompress keys
 	uint8_t server_pub[64];
-	if(!uECC_decompress(server_keys.compressed_pub, server_pub, curve)) {
-		perror("Failed to decompress key");
-		return -1;
-	}
+	uECC_decompress(server_keys.compressed_pub, server_pub, curve);
 
 	// Compute secret
 	uint8_t secret[32];
@@ -61,7 +65,8 @@ int compute_secret(int argc, char* argv[]) {
 	
 	printf("Secret computed:\n");
 	print_key(secret, 32);
-
+	
+	return 0;
 }
 
 
@@ -77,10 +82,6 @@ void print_key(uint8_t* key, size_t size) {
 
 // Generate private random key (without hwrng)
 void generate_private_key(uint8_t *key, size_t size) {
-	/*
- 	 *	TODO: Try to set a more secure seed even if hwrng not available on m3 board
- 	 *	random_init(uint32_t seed);
- 	 */
 	random_bytes(key, size);
 }
 
@@ -101,10 +102,7 @@ int generate_keys(Key *key, const struct uECC_Curve_t *curve) {
 	print_key(key->pub, uECC_curve_public_key_size(curve));
 	
 	// Compress public key
-	if(!uECC_compress(key->pub, key->compressed_pub, curve)) {
-		perror("Failed to compress the public key");
-		return -1;
-	}
+	uECC_compress(key->pub, key->compressed_pub, curve);
 	
 	printf("Compressed key:\n");
 	print_key(key->compressed_pub, uECC_curve_private_key_size(curve) + 1);

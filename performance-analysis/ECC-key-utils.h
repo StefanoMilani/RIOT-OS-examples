@@ -1,5 +1,5 @@
 /**
- * @file        key-management.h
+ * @file        ECC-key-utils.h
  * @brief       Contains declaration of structs and functions
  * 				to manage keys
  *
@@ -9,8 +9,10 @@
 #ifndef ECC_UTILS_H
 #define ECC_UTILS_H
 
+#include <unistd.h>
+
 // Compute fake server keys
-int generate_fake_server_key();
+int generate_fake_server_keys(void);
 
 // Compute priv/pub key pair annd compress pub key
 int compute_keys(int argc, char* argv[]);

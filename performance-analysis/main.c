@@ -20,6 +20,9 @@
  *
  */
 
+#include <unistd.h>
+#include <stdio.h>
+
 #include "ECC-key-utils.h"
 
 // Shell library
@@ -28,7 +31,7 @@
 // Add custon shell command
 static const shell_command_t commands[] = {
 	{ "compute-ecc-keys", "Compute a pir of privat/public ECC key and compress the public key", compute_keys},
-	{ "generate-secret", "Uncompress public key and compute ECC-DH secret", compute_secret}
+	{ "generate-secret", "Uncompress public key and compute ECC-DH secret", compute_secret},
     { NULL, NULL, NULL}
 }; 
 
