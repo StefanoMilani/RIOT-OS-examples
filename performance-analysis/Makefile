@@ -25,6 +25,9 @@ USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
 
+USEMODULE += xtimer
+USEMODULE += crypto
+
 # micro ecc support
 USEPKG += micro-ecc
 

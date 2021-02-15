@@ -10,6 +10,8 @@
 
 #include "uECC.h"
 #include "random.h"
+#include "xtimer.h"
+#include "crypto/aes.h"
 
 #include "ECC-key-utils.h"
 
@@ -28,47 +30,148 @@ int generate_keys(Key *key, const struct uECC_Curve_t *curve);
 // Global variables
 Key device_keys;
 Key server_keys;
+uint8_t secret[32];
 uint8_t server_compressed[33];
 const struct uECC_Curve_t *curve;
+uint8_t plaintext[AES_BLOCK_SIZE];
+uint8_t ciphertext[AES_BLOCK_SIZE];
 
+// Generate private random key (without hwrng)
+void generate_private_key(uint8_t *key, size_t size) {
+	random_bytes(key, size);
+}
 
+// Generate fake server keys
 int generate_fake_server_keys(void) {
 	curve = uECC_secp256r1();
-	return generate_keys(&server_keys, curve);
+	if( generate_keys(&server_keys, curve) && generate_keys(&device_keys, curve)) 
+		return -1;
+	if(!uECC_shared_secret(server_keys.pub, device_keys.priv, secret, curve)) {
+		perror("Failed to compute secret");
+		return -1;
+	} 
+	random_bytes(plaintext, AES_BLOCK_SIZE);	
+	return 0; 
 }
 
 /*
  *	Shell functions
  */
 
-// Compute priv/pub key pair annd compress pub key
+// Compute priv/pub key pair
 int compute_keys(int argc, char* argv[]) {
 	argv++;
 	argc++;	
-	return generate_keys(&device_keys, curve);
+
+	// Start Timer
+	uint32_t start = xtimer_now_usec();
+
+	// Private key
+	generate_private_key(device_keys.priv, uECC_curve_private_key_size(curve));
+	
+	// Compute public key
+	if(!uECC_compute_public_key(device_keys.priv, device_keys.pub, curve)) {
+		perror("Failed to compute public key");
+		return -1;
+	}
+	
+	// End Timer
+	uint32_t end = xtimer_now_usec();
+
+	printf("Generated pair of private/public ECC key\nElapsed time: %ld ms", end-start);
+
+	return 0;
+}
+
+// Compress public key
+int compress_key(int argc, char* argv[]) {
+	argv++;
+	argc++;
+
+	// Start time
+	uint32_t start = xtimer_now_usec();
+	
+	// Compress public key
+	uECC_compress(server_keys.pub, server_keys.compressed_pub, curve);
+	
+	// End time
+	uint32_t end = xtimer_now_usec();
+
+	printf("Compressed public ECC key.\nElapsed time: %ld ms", end-start);
+
+	return 0;
+}
+
+// Decompress public key
+int decompress_key(int argc, char* argv[]) {
+	// Start time
+	uint32_t start = xtimer_now_usec();
+
+	// Decompress keys
+	uint8_t server_pub[64];
+	uECC_decompress(server_keys.compressed_pub, server_keys.pub, curve);
+
+	// End time
+	uint32_t end = xtimer_now_usec();
+
+	printf("Decompressed public key\nElapsed time: %ld ms", end-start);
+
+	return 0;
+	
 }
 
 // Uncompress key and compute secret
 int compute_secret(int argc, char* argv[]) {
 	argv++;
 	argc++;	
-	// Decompress keys
-	uint8_t server_pub[64];
-	uECC_decompress(server_keys.compressed_pub, server_pub, curve);
-
+	
+	// Start time
+	uint32_t start = xtimer_now_usec();
 	// Compute secret
-	uint8_t secret[32];
-	if(!uECC_shared_secret(server_pub, device_keys.priv, secret, curve)) {
+	if(!uECC_shared_secret(server_keys.pub, device_keys.priv, secret, curve)) {
 		perror("Failed to compute secret");
 		return -1;
 	} 
 	
-	printf("Secret computed:\n");
+	// End time
+	uint32_t end = xtimer_now_usec();
+	printf("Secret computed\nElapsed time: %ld ms", end-start);
 	print_key(secret, 32);
 	
 	return 0;
 }
 
+// Encrypt with AES
+int encrypt_text(int argc, char* argv[]) {    
+
+	// Initialize aes struct
+	cipher_context_t aes_context;
+
+	// Start time
+	uint32_t start = xtimer_now_usec();
+
+	// Initialize context
+	int ret = aes_init(&aes_context, (const uint8_t*) secret, AES_KEY_SIZE);
+	if(ret != CIPHER_INIT_SUCCESS) {
+		printf("ERROR: %d\n", ret);
+		perror("Failed to initialize aes context");
+		return -1;
+	}
+
+	// Encrypt len+message and put it in server buffer
+	ret = aes_encrypt(&aes_context, (const uint8_t*) plaintext, ciphertext);
+	if(ret < 0) {
+		perror("Failed to encrypt data");
+		return -1;
+	}
+
+	// End time
+	uint32_t end = xtimer_now_usec();
+	
+	printf("Text encrypted.\nElapsed time: %ld ms", end-start);	    
+
+	return 0;
+}
 
 // Print key
 void print_key(uint8_t* key, size_t size) {
@@ -79,12 +182,6 @@ void print_key(uint8_t* key, size_t size) {
     }
     printf("\n");
 }
-
-// Generate private random key (without hwrng)
-void generate_private_key(uint8_t *key, size_t size) {
-	random_bytes(key, size);
-}
-
 // Generate private, public and compressed keys
 int generate_keys(Key *key, const struct uECC_Curve_t *curve) {
 	

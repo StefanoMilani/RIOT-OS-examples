@@ -1,24 +1,3 @@
-/*
- * Copyright (C) 2015 Martine Lenders <mlenders@inf.fu-berlin.de>
- *
- * This file is subject to the terms and conditions of the GNU Lesser
- * General Public License v2.1. See the file LICENSE in the top level
- * directory for more details.
- */
-
-/**
- * @{
- *
- * @file
- * @brief       Example application for demonstrating the RIOT's POSIX sockets
- *
- * @author      Martine Lenders <mlenders@inf.fu-berlin.de>
- *
- * @}
- * 
- * @modified-by Stefano Milani <stefano.milani96@gmail.com>
- *
- */
 
 #include <unistd.h>
 #include <stdio.h>
@@ -28,11 +7,14 @@
 // Shell library
 #include "shell.h"
 
-// Add custon shell command
+// Add custom shell command
 static const shell_command_t commands[] = {
-	{ "compute-ecc-keys", "Compute a pir of privat/public ECC key and compress the public key", compute_keys},
-	{ "generate-secret", "Uncompress public key and compute ECC-DH secret", compute_secret},
-    { NULL, NULL, NULL}
+	{ "compute-ecc-keys", "Compute a pair of private/public ECC key", compute_keys},
+	{ "compress-ecc-public-key", "Compress a public ECC key", compress_key },
+	{ "decompress=ecc=public-key", "De-compress a compressed public ECC key", decompress_key},
+	{ "generate-secret", "Compute ECC-DH secret", compute_secret},
+	{ "encrypt-message", "Encrypt a message using AES-128 bits", encrypt_text},
+	{ NULL, NULL, NULL}
 }; 
 
 int main(void) {
@@ -42,10 +24,10 @@ int main(void) {
 		return -1;
 	}
 
-    // Start shell
-    char line_buf[SHELL_DEFAULT_BUFSIZE];
-    shell_run(commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+	// Start shell
+	char line_buf[SHELL_DEFAULT_BUFSIZE];
+ 	shell_run(commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
-    /* should be never reached */
-    return 0;
+    	/* should be never reached */
+    	return 0;
 }
