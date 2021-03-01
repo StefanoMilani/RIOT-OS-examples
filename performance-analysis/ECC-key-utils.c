@@ -15,6 +15,8 @@
 
 #include "ECC-key-utils.h"
 
+#define TESTROUNDS 100
+
 // Struct for storing key pair
 struct key_t {
     uint8_t		priv[32];
@@ -67,23 +69,29 @@ int generate_fake_server_keys(void) {
 int compute_keys(int argc, char* argv[]) {
 	argv++;
 	argc++;	
-
-	// Start Timer
-	uint32_t start = xtimer_now_usec();
-
-	// Private key
-	generate_private_key(device_keys.priv, uECC_curve_private_key_size(curve));
 	
-	// Compute public key
-	if(!uECC_compute_public_key(device_keys.priv, device_keys.pub, curve)) {
-		perror("Failed to compute public key");
-		return -1;
+	uint32_t avg_time = 0;
+
+	for(uint8_t i = 0; i < TESTROUNDS; i++) {
+		// Start Timer
+		uint32_t start = xtimer_now_usec();
+
+		// Private key
+		generate_private_key(device_keys.priv, uECC_curve_private_key_size(curve));
+		
+		// Compute public key
+		if(!uECC_compute_public_key(device_keys.priv, device_keys.pub, curve)) {
+			perror("Failed to compute public key");
+			return -1;
+		}
+		
+		// End Timer
+		uint32_t end = xtimer_now_usec();
+		
+		avg_time += (end-start);
 	}
-	
-	// End Timer
-	uint32_t end = xtimer_now_usec();
 
-	printf("Generated pair of private/public ECC key\nElapsed time: %ld microsenconds\n", end-start);
+	printf("Generated pair of private/public ECC key\nAverage elapsed time: %ld microsenconds\n", avg_time/TESTROUNDS);
 
 	return 0;
 }
@@ -93,33 +101,44 @@ int compress_key(int argc, char* argv[]) {
 	argv++;
 	argc++;
 
-	// Start time
-	uint32_t start = xtimer_now_usec();
-	
-	// Compress public key
-	uECC_compress(server_keys.pub, server_keys.compressed_pub, curve);
-	
-	// End time
-	uint32_t end = xtimer_now_usec();
+	uint32_t avg_time = 0;
 
-	printf("Compressed public ECC key.\nElapsed time: %ld microseconds\n", end-start);
+	for(uint8_t i = 0; i < TESTROUNDS; i++) {
+		// Start time
+		uint32_t start = xtimer_now_usec();
+		
+		// Compress public key
+		uECC_compress(server_keys.pub, server_keys.compressed_pub, curve);
+		
+		// End time
+		uint32_t end = xtimer_now_usec();
+		
+		avg_time += (end-start);
+	}
+	printf("Compressed public ECC key.\naverage elapsed time: %ld microseconds\n", avg_time/TESTROUNDS);
 
 	return 0;
 }
 
 // Decompress public key
 int decompress_key(int argc, char* argv[]) {
-	// Start time
-	uint32_t start = xtimer_now_usec();
+	uint32_t avg_time = 0;
 
-	// Decompress keys
-	uint8_t server_pub[64];
-	uECC_decompress(server_keys.compressed_pub, server_keys.pub, curve);
+	for(uint8_t i = 0; i < TESTROUNDS; i++) {
+		// Start time
+		uint32_t start = xtimer_now_usec();
 
-	// End time
-	uint32_t end = xtimer_now_usec();
+		// Decompress keys
+		uint8_t server_pub[64];
+		uECC_decompress(server_keys.compressed_pub, server_keys.pub, curve);
 
-	printf("Decompressed public key\nElapsed time: %ld microseconds\n", end-start);
+		// End time
+		uint32_t end = xtimer_now_usec();
+		
+		avg_time += (end-start);
+	}
+
+	printf("Decompressed public key\naverage elapsed time: %ld microseconds\n", avg_time/TESTROUNDS);
 
 	return 0;
 	
@@ -130,18 +149,24 @@ int compute_secret(int argc, char* argv[]) {
 	argv++;
 	argc++;	
 	
-	// Start time
-	uint32_t start = xtimer_now_usec();
-	// Compute secret
-	if(!uECC_shared_secret(server_keys.pub, device_keys.priv, secret, curve)) {
-		perror("Failed to compute secret");
-		return -1;
-	} 
-	
-	// End time
-	uint32_t end = xtimer_now_usec();
-	printf("Secret computed\nElapsed time: %ld microseconds\n", end-start);
-	print_key(secret, 32);
+	uint32_t avg_time = 0;
+
+	for(uint8_t i = 0; i < TESTROUNDS; i++) {
+		// Start time
+		uint32_t start = xtimer_now_usec();
+		// Compute secret
+		if(!uECC_shared_secret(server_keys.pub, device_keys.priv, secret, curve)) {
+			perror("Failed to compute secret");
+			return -1;
+		} 
+		
+		// End time
+		uint32_t end = xtimer_now_usec();
+		
+		avg_time += (end-start);
+	}
+
+	printf("Secret computed\nAverage elapsed time: %ld microseconds\n", avg_time/TESTROUNDS);
 	
 	return 0;
 }
@@ -152,28 +177,34 @@ int encrypt_text(int argc, char* argv[]) {
 	// Initialize aes struct
 	cipher_context_t aes_context;
 
-	// Start time
-	uint32_t start = xtimer_now_usec();
+	uint32_t avg_time = 0;
 
-	// Initialize context
-	int ret = aes_init(&aes_context, (const uint8_t*) secret, AES_KEY_SIZE);
-	if(ret != CIPHER_INIT_SUCCESS) {
-		printf("ERROR: %d\n", ret);
-		perror("Failed to initialize aes context");
-		return -1;
+	for(uint8_t i = 0; i < TESTROUNDS; i++) {
+		// Start time
+		uint32_t start = xtimer_now_usec();
+
+		// Initialize context
+		int ret = aes_init(&aes_context, (const uint8_t*) secret, AES_KEY_SIZE);
+		if(ret != CIPHER_INIT_SUCCESS) {
+			printf("ERROR: %d\n", ret);
+			perror("Failed to initialize aes context");
+			return -1;
+		}
+
+		// Encrypt len+message and put it in server buffer
+		ret = aes_encrypt(&aes_context, (const uint8_t*) plaintext, ciphertext);
+		if(ret < 0) {
+			perror("Failed to encrypt data");
+			return -1;
+		}
+
+		// End time
+		uint32_t end = xtimer_now_usec();
+
+		avg_time += (end-start);
 	}
-
-	// Encrypt len+message and put it in server buffer
-	ret = aes_encrypt(&aes_context, (const uint8_t*) plaintext, ciphertext);
-	if(ret < 0) {
-		perror("Failed to encrypt data");
-		return -1;
-	}
-
-	// End time
-	uint32_t end = xtimer_now_usec();
 	
-	printf("Text encrypted.\nElapsed time: %ld microseconds\n", end-start);	    
+	printf("Text encrypted.\nAverage elapsed time: %ld microseconds\n", avg_time/TESTROUNDS);	    
 
 	return 0;
 }
